@@ -144,18 +144,6 @@ async def auto_add_channel_forward(message: Message, state: FSMContext, services
     title = chat.title or "Kanal"
     username = chat.username
 
-    if username:
-        invite_link = f"https://t.me/{username}"
-    else:
-        try:
-            link_obj = await message.bot.create_chat_invite_link(chat_id, name="Bot obuna")
-            invite_link = link_obj.invite_link
-        except Exception:
-            try:
-                invite_link = await message.bot.export_chat_invite_link(chat_id)
-            except Exception:
-                invite_link = f"https://t.me/c/{str(chat_id).replace('-100', '')}/1"
-
     # Check bot admin status
     try:
         member = await message.bot.get_chat_member(chat_id, message.bot.id)
@@ -163,16 +151,50 @@ async def auto_add_channel_forward(message: Message, state: FSMContext, services
     except Exception:
         is_admin = False
 
-    await services.channels.add(RequiredChannel(chat_id, title, invite_link, "joinchat" in invite_link or "+" in invite_link))
+    is_join_req = False
+    invite_link = None
+
+    if is_admin:
+        # Try generating automatic join-request invite link directly via bot API
+        try:
+            link_obj = await message.bot.create_chat_invite_link(
+                chat_id,
+                name="Bot obuna (Zayavka)",
+                creates_join_request=True,
+            )
+            invite_link = link_obj.invite_link
+            is_join_req = True
+        except Exception:
+            pass
+
+    if not invite_link:
+        if username:
+            invite_link = f"https://t.me/{username}"
+            is_join_req = False
+        else:
+            try:
+                link_obj = await message.bot.create_chat_invite_link(chat_id, name="Bot obuna")
+                invite_link = link_obj.invite_link
+                is_join_req = True
+            except Exception:
+                try:
+                    invite_link = await message.bot.export_chat_invite_link(chat_id)
+                    is_join_req = True
+                except Exception:
+                    invite_link = f"https://t.me/c/{str(chat_id).replace('-100', '')}/1"
+                    is_join_req = True
+
+    await services.channels.add(RequiredChannel(chat_id, title, invite_link, is_join_req))
     await services.subscriptions.invalidate_channels()
     await state.clear()
 
-    admin_note = "✅ <b>Bot ushbu kanalda admin.</b>" if is_admin else "⚠️ <b>Eslatma:</b> Bot ushbu kanalda admin emas! Foydalanuvchilar obunasini to'liq tekshirish uchun botni kanalda admin qiling."
+    admin_note = "✅ <b>Bot ushbu kanalda admin. Zayavka havolasi avtomatik yaratildi!</b>" if is_admin else "⚠️ <b>Eslatma:</b> Bot ushbu kanalda admin emas! Foydalanuvchilar obunasi to'liq ishlashi uchun botni kanalda admin qiling."
     text = (
         f"🎉 <b>Kanal muvaffaqiyatli majburiy obunalarga qo'shildi!</b>\n\n"
         f"📢 <b>Nomi:</b> {html.escape(title)}\n"
         f"🆔 <b>Chat ID:</b> <code>{chat_id}</code>\n"
-        f"🔗 <b>Havola:</b> {invite_link}\n\n"
+        f"🔗 <b>Avtomatik havola:</b> {invite_link}\n"
+        f"📩 <b>Turi:</b> {'Zayavkali kanal (Join Request)' if is_join_req else 'Ochiq kanal'}\n\n"
         f"{admin_note}"
     )
     channels = await services.channels.list_required()
