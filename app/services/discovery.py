@@ -5,15 +5,10 @@ from app.repositories.models import Movie
 from app.repositories.movies import MovieRepository
 
 TRACKED_SECTIONS = [
-    "🆕 Yangi videolar",
     "🎲 Tasodifiy video",
-    "🔥 Eng mashhurlar",
-    "❤️ Sevimlilar",
     "⭐ TOP reyting",
-    "🎁 Bonuslar",
-    "🎭 Kategoriyalar",
-    "⭐ Baholash",
     "👥 Do'st taklif qilish",
+    "⭐ Baholash",
     "🔎 Qidirish",
 ]
 

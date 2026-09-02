@@ -4,9 +4,8 @@ from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, Message
 
-from app.keyboards.categories import categories_keyboard
 from app.keyboards.movie_actions import movie_actions
-from app.keyboards.user import BONUSES, CATEGORIES, FAVORITES, INVITE, NEW, POPULAR, RANDOM, TOP_RATED
+from app.keyboards.user import INVITE, RANDOM, TOP_RATED
 from app.services.container import Services
 from app.utils.movie_helpers import format_movie_caption, send_movie_list, send_single_movie
 
@@ -25,50 +24,6 @@ async def get_movie_callback(callback: CallbackQuery, services: Services) -> Non
         return
     user_id = callback.from_user.id if callback.from_user else None
     await send_single_movie(callback.message, movie, services, user_id=user_id)
-
-
-@router.message(F.text == POPULAR)
-async def popular(message: Message, services: Services) -> None:
-    user_id = message.from_user.id if message.from_user else None
-    await services.discovery.track_section("🔥 Eng mashhurlar", user_id)
-    movies = await services.discovery.popular()
-    await send_movie_list(message, movies, services, "🔥 <b>Eng mashhur videolar:</b>", user_id=user_id)
-
-
-@router.message(F.text == NEW)
-async def new_movies(message: Message, services: Services) -> None:
-    user_id = message.from_user.id if message.from_user else None
-    await services.discovery.track_section("🆕 Yangi videolar", user_id)
-    movies = await services.movies.repository.list_new()
-    await send_movie_list(message, movies, services, "🆕 <b>Yangi videolar:</b>", user_id=user_id)
-
-
-@router.message(F.text == CATEGORIES)
-async def categories(message: Message, services: Services) -> None:
-    user_id = message.from_user.id if message.from_user else None
-    await services.discovery.track_section("🎭 Kategoriyalar", user_id)
-    items = await services.movies.repository.categories()
-    if not items:
-        await message.answer("🎭 Hozircha kategoriyalar uchun video qo'shilmagan.")
-        return
-    await message.answer("🎭 <b>Kerakli kategoriyani tanlang:</b>", reply_markup=categories_keyboard(items), parse_mode="HTML")
-
-
-@router.callback_query(F.data.startswith("cat:"))
-async def category_movies(callback: CallbackQuery, services: Services) -> None:
-    category = callback.data[4:]
-    await callback.answer()
-    user_id = callback.from_user.id if callback.from_user else None
-    await services.discovery.track_section("🎭 Kategoriyalar", user_id)
-    if callback.message:
-        movies = await services.movies.repository.list_category(category)
-        await send_movie_list(
-            callback.message,
-            movies,
-            services,
-            f"🎭 <b>Kategoriya: {category}</b> ({len(movies)} ta video):",
-            user_id=user_id,
-        )
 
 
 @router.message(F.text == TOP_RATED)
@@ -91,27 +46,6 @@ async def random_movie(message: Message, services: Services) -> None:
     await send_single_movie(message, movie, services, user_id=user_id)
 
 
-@router.message(F.text == FAVORITES)
-async def favorites(message: Message, services: Services) -> None:
-    if not message.from_user:
-        return
-    await services.discovery.track_section("❤️ Sevimlilar", message.from_user.id)
-    movies = await services.movies.repository.favorites(message.from_user.id)
-    if not movies:
-        await message.answer(
-            "❤️ Sevimli videolaringiz ro'yxati hozircha bo'sh.\n"
-            "Videolar ostidagi ❤️ tugmasini bosib, ularni bu yerga saqlashingiz mumkin."
-        )
-        return
-    await send_movie_list(
-        message,
-        movies,
-        services,
-        f"❤️ <b>Sevimli videolaringiz</b> ({len(movies)} ta):",
-        user_id=message.from_user.id,
-    )
-
-
 @router.message(F.text == INVITE)
 async def invite(message: Message, services: Services) -> None:
     if not message.from_user:
@@ -119,24 +53,13 @@ async def invite(message: Message, services: Services) -> None:
     await services.discovery.track_section("👥 Do'st taklif qilish", message.from_user.id)
     bot_user = await message.bot.get_me()
     link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
+    points, referrals = await services.users.bonus_summary(message.from_user.id)
     await message.answer(
         f"👥 <b>Do'stlaringizni taklif qiling va bonus oling!</b>\n\n"
         f"Har bir taklif qilingan do'stingiz uchun <b>10 ball</b> beriladi.\n\n"
+        f"👥 Siz taklif qilgan do'stlar: <b>{referrals} ta</b>\n"
+        f"💎 To'plangan ballar: <b>{points} ball</b>\n\n"
         f"Sizning taklif havolangiz:\n<code>{link}</code>",
-        parse_mode="HTML",
-    )
-
-
-@router.message(F.text == BONUSES)
-async def bonuses(message: Message, services: Services) -> None:
-    if not message.from_user:
-        return
-    await services.discovery.track_section("🎁 Bonuslar", message.from_user.id)
-    points, referrals = await services.users.bonus_summary(message.from_user.id)
-    await message.answer(
-        f"🎁 <b>Sizning bonuslaringiz:</b>\n\n"
-        f"👥 Taklif qilingan do'stlar: <b>{referrals} ta</b>\n"
-        f"💎 To'plangan ballar: <b>{points} ball</b>",
         parse_mode="HTML",
     )
 

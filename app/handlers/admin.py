@@ -553,14 +553,45 @@ async def admins_menu(callback: CallbackQuery, state: FSMContext, services: Serv
 async def add_admin(message: Message, state: FSMContext, services: Services) -> None:
     if not message.from_user or not services.admins.is_root(message.from_user.id):
         return
+    text = message.text.strip()
+    from app.keyboards.user import INVITE, RANDOM, TOP_RATED
+    if text.startswith("/") or text in {RANDOM, TOP_RATED, INVITE, "🔥 Eng mashhurlar", "🆕 Yangi videolar", "🎭 Kategoriyalar", "❤️ Sevimlilar", "🎁 Bonuslar"}:
+        await state.clear()
+        if text == "/cancel":
+            await message.answer("❌ Bekor qilindi.", reply_markup=admin_keyboard())
+            return
+        if text == RANDOM:
+            movie = await services.movies.repository.random()
+            if movie:
+                await send_single_movie(message, movie, services, user_id=message.from_user.id)
+            else:
+                await message.answer("🎲 Hozircha bazada videolar mavjud emas.")
+            return
+        if text == TOP_RATED:
+            movies = await services.movies.repository.top_rated()
+            await send_movie_list(message, movies, services, "⭐ <b>Eng yuqori baholangan videolar:</b>", user_id=message.from_user.id)
+            return
+        if text == INVITE:
+            bot_user = await message.bot.get_me()
+            link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
+            points, referrals = await services.users.bonus_summary(message.from_user.id)
+            await message.answer(
+                f"👥 <b>Do'stlaringizni taklif qiling:</b>\n\n"
+                f"👥 Taklif qilgan do'stlaringiz: <b>{referrals} ta</b>\n"
+                f"💎 Bonus ballar: <b>{points} ball</b>\n\n"
+                f"Sizning taklif havolangiz:\n<code>{link}</code>",
+                parse_mode="HTML",
+            )
+            return
+
     try:
-        user_id = int(message.text)
+        user_id = int(text)
     except ValueError:
-        await message.answer("User ID son bo'lishi kerak.")
+        await message.answer("❌ User ID faqat son bo'lishi kerak (masalan: <code>123456789</code>).\nBekor qilish uchun: /cancel", parse_mode=ParseMode.HTML)
         return
     await services.admins.add(user_id)
     await state.clear()
-    await message.answer(f"✅ {user_id} admin qilindi.")
+    await message.answer(f"✅ <code>{user_id}</code> admin qilindi.", reply_markup=admin_keyboard(), parse_mode=ParseMode.HTML)
 
 
 @router.message(Command("deladmin"), F.text)
