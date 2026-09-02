@@ -1,3 +1,4 @@
+import logging
 import orjson
 from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
@@ -6,6 +7,8 @@ from redis.asyncio import Redis
 from app.repositories.channels import ChannelRepository
 from app.repositories.models import RequiredChannel
 
+log = logging.getLogger(__name__)
+
 
 class SubscriptionService:
     CHANNELS_KEY = "required_channels:v1"
@@ -13,6 +16,27 @@ class SubscriptionService:
 
     def __init__(self, bot: Bot, redis: Redis, repository: ChannelRepository, ttl: int) -> None:
         self.bot, self.redis, self.repository, self.ttl = bot, redis, repository, ttl
+
+    @staticmethod
+    def get_id_variants(chat_id: int | str) -> list[str]:
+        raw = str(chat_id).strip()
+        variants = {raw}
+        # e.g. -1001234567890 -> 1234567890, 1001234567890, -1234567890
+        if raw.startswith("-100"):
+            without_100 = raw[4:]
+            variants.add(without_100)
+            variants.add(f"-{without_100}")
+            variants.add(raw.lstrip("-"))
+        elif raw.startswith("-"):
+            without_minus = raw[1:]
+            variants.add(without_minus)
+            variants.add(f"-100{without_minus}")
+            variants.add(f"100{without_minus}")
+        else:
+            variants.add(f"-{raw}")
+            variants.add(f"-100{raw}")
+            variants.add(f"100{raw}")
+        return list(variants)
 
     async def channels(self) -> list[RequiredChannel]:
         raw = await self.redis.get(self.CHANNELS_KEY)
@@ -34,13 +58,17 @@ class SubscriptionService:
         await self.redis.delete(self.CHANNELS_KEY)
 
     async def record_join_request(self, user_id: int, chat_id: int) -> None:
-        # Save for 30 days in Redis (user submitted join request)
-        await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}", "1", ex=2_592_000)
-        await self.redis.set(f"sub:v1:{chat_id}:{user_id}", "1", ex=self.ttl)
+        variants = self.get_id_variants(chat_id)
+        for v in variants:
+            await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{v}:{user_id}", "1", ex=2_592_000)
+            await self.redis.set(f"sub:v1:{v}:{user_id}", "1", ex=2_592_000)
+        log.info("Recorded join request for user %s across chat variants: %s", user_id, variants)
 
     async def is_join_requested(self, user_id: int, chat_id: int) -> bool:
-        val = await self.redis.get(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}")
-        return val == "1"
+        variants = self.get_id_variants(chat_id)
+        keys = [f"{self.JOIN_REQUEST_KEY_PREFIX}{v}:{user_id}" for v in variants]
+        vals = await self.redis.mget(*keys)
+        return any(v == "1" or v == b"1" for v in vals if v is not None)
 
     async def missing(self, user_id: int) -> list[RequiredChannel]:
         channels = await self.channels()
@@ -55,9 +83,9 @@ class SubscriptionService:
 
             key = f"sub:v1:{channel.chat_id}:{user_id}"
             cached = await self.redis.get(key)
-            if cached == "1":
+            if cached == "1" or cached == b"1":
                 continue
-            if cached == "0":
+            if cached == "0" or cached == b"0":
                 missing.append(channel)
                 continue
 
@@ -69,7 +97,8 @@ class SubscriptionService:
                     ChatMemberStatus.CREATOR,
                     ChatMemberStatus.RESTRICTED,
                 }
-            except Exception:
+            except Exception as e:
+                log.debug("Could not verify chat member for user %s in chat %s: %s", user_id, channel.chat_id, e)
                 subscribed = False
 
             await self.redis.set(key, "1" if subscribed else "0", ex=self.ttl)
@@ -79,11 +108,17 @@ class SubscriptionService:
         return missing
 
     async def mark_joined(self, user_id: int, chat_id: int) -> None:
-        await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}", "1", ex=2_592_000)
-        await self.redis.set(f"sub:v1:{chat_id}:{user_id}", "1", ex=self.ttl)
+        variants = self.get_id_variants(chat_id)
+        for v in variants:
+            await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{v}:{user_id}", "1", ex=2_592_000)
+            await self.redis.set(f"sub:v1:{v}:{user_id}", "1", ex=2_592_000)
 
     async def invalidate_user(self, user_id: int) -> None:
         channels = await self.channels()
         if channels:
-            keys = [f"sub:v1:{channel.chat_id}:{user_id}" for channel in channels]
-            await self.redis.delete(*keys)
+            keys = []
+            for channel in channels:
+                for v in self.get_id_variants(channel.chat_id):
+                    keys.append(f"sub:v1:{v}:{user_id}")
+            if keys:
+                await self.redis.delete(*keys)

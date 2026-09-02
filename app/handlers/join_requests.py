@@ -10,6 +10,12 @@ router = Router(name="join_requests")
 
 @router.chat_join_request()
 async def join_request(request: ChatJoinRequest, services: Services) -> None:
-    # Record join request in bot cache so user passes mandatory subscription check immediately.
-    # We do NOT auto-approve so join requests accumulate in the channel for the admin.
+    log.info(
+        "📩 ChatJoinRequest update received! User ID: %s (%s), Chat ID: %s (%s)",
+        request.from_user.id,
+        request.from_user.full_name,
+        request.chat.id,
+        request.chat.title,
+    )
+    # Record join request in bot cache so user passes mandatory subscription check immediately
     await services.subscriptions.record_join_request(request.from_user.id, request.chat.id)
