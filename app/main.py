@@ -14,7 +14,6 @@ from app.db.postgres import create_pool
 from app.db.redis import create_redis
 from app.handlers import build_router
 from app.middlewares.rate_limit import RateLimitMiddleware
-from app.middlewares.age_gate import AgeGateMiddleware
 from app.middlewares.subscription import SubscriptionMiddleware
 from app.middlewares.user import UserMiddleware
 from app.services.container import build_services
@@ -35,7 +34,6 @@ async def build_dispatcher():  # type: ignore[no-untyped-def]
     dispatcher = Dispatcher(storage=RedisStorage(redis=redis))
     dispatcher.update.outer_middleware(RateLimitMiddleware(redis, settings.rate_limit_per_second))
     dispatcher.update.outer_middleware(UserMiddleware(services))
-    dispatcher.update.outer_middleware(AgeGateMiddleware(services))
     dispatcher.update.outer_middleware(SubscriptionMiddleware(services))
     dispatcher.include_router(build_router())
     return settings, bot, dispatcher, pool, redis, services

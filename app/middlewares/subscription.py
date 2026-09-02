@@ -22,10 +22,10 @@ class SubscriptionMiddleware(BaseMiddleware):
         cb = event if isinstance(event, CallbackQuery) else getattr(event, "callback_query", None)
         msg = event if isinstance(event, Message) else getattr(event, "message", None)
 
-        # Allow admin command and subscription/age callbacks through
+        # Allow admin command and subscription check callback through
         if msg and msg.text and msg.text.startswith("/admin"):
             return await handler(event, data)
-        if cb and (cb.data == "subscription:check" or cb.data in {"age:accept", "age:decline"}):
+        if cb and cb.data == "subscription:check":
             return await handler(event, data)
 
         missing = await self.services.subscriptions.missing(user.id)
