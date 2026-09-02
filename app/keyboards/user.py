@@ -1,7 +1,7 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-RANDOM = "🎲 Tasodifiy video"
-TOP_RATED = "⭐ TOP reyting"
+RANDOM = "Tasodifiy video 🔞"
+TOP_RATED = "TOP SEKSLAR🔥"
 INVITE = "👥 Do'st taklif qilish"
 
 
