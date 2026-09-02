@@ -15,12 +15,19 @@ class SubscriptionMiddleware(BaseMiddleware):
         self.services = services
 
     async def __call__(self, handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]], event: TelegramObject, data: dict[str, Any]) -> Any:
-        user = data.get("event_from_user") or getattr(event, "from_user", None)
-        if not user or await self.services.admins.is_admin(user.id):
+        # Allow chat_join_request, chat_member, and other non-message/non-callback updates to pass through unconditionally
+        if getattr(event, "chat_join_request", None) or getattr(event, "chat_member", None) or getattr(event, "my_chat_member", None):
             return await handler(event, data)
 
         cb = event if isinstance(event, CallbackQuery) else getattr(event, "callback_query", None)
         msg = event if isinstance(event, Message) else getattr(event, "message", None)
+
+        if not cb and not msg:
+            return await handler(event, data)
+
+        user = data.get("event_from_user") or getattr(event, "from_user", None)
+        if not user or await self.services.admins.is_admin(user.id):
+            return await handler(event, data)
 
         # Allow admin command and subscription check callback through
         if msg and msg.text and msg.text.startswith("/admin"):
