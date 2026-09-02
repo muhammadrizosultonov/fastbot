@@ -1,0 +1,32 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+  broadcaster:
+    build: .
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+    environment:
+      RUN_BROADCAST_WORKER: "true"
+    command: ["python", "-m", "app.broadcast_worker"]
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: moviebot
+      POSTGRES_USER: moviebot
+      POSTGRES_PASSWORD: moviebot
+    volumes: [postgres_data:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes: [redis_data:/data]
+volumes:
+  postgres_data:
+  redis_data:

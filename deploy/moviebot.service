@@ -1,0 +1,18 @@
+[Unit]
+Description=Movie bot webhook worker
+After=network-online.target
+
+[Service]
+User=moviebot
+WorkingDirectory=/opt/moviebot
+EnvironmentFile=/opt/moviebot/.env
+ExecStart=/opt/moviebot/.venv/bin/python -m app
+Restart=always
+RestartSec=2
+KillSignal=SIGINT
+TimeoutStopSec=30
+NoNewPrivileges=true
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
