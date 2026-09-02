@@ -1,15 +1,20 @@
+import logging
 from aiogram import Router
 from aiogram.types import ChatJoinRequest
 
 from app.services.container import Services
 
+log = logging.getLogger(__name__)
 router = Router(name="join_requests")
 
 
 @router.chat_join_request()
 async def join_request(request: ChatJoinRequest, services: Services) -> None:
-    # Approval is deliberately explicit in the channel configuration; auto-approve can be enabled per policy later.
-    channels = await services.subscriptions.channels()
-    if any(channel.chat_id == request.chat.id and channel.is_join_request for channel in channels):
+    # Always record the join request so user passes mandatory subscription check immediately
+    await services.subscriptions.record_join_request(request.from_user.id, request.chat.id)
+
+    # Also attempt auto-approval if possible
+    try:
         await request.bot.approve_chat_join_request(request.chat.id, request.from_user.id)
-        await services.subscriptions.mark_joined(request.from_user.id, request.chat.id)
+    except Exception as e:
+        log.debug("Auto-approve chat join request notice for chat %s: %s", request.chat.id, e)

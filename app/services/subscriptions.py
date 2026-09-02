@@ -9,6 +9,7 @@ from app.repositories.models import RequiredChannel
 
 class SubscriptionService:
     CHANNELS_KEY = "required_channels:v1"
+    JOIN_REQUEST_KEY_PREFIX = "join_req:v1:"
 
     def __init__(self, bot: Bot, redis: Redis, repository: ChannelRepository, ttl: int) -> None:
         self.bot, self.redis, self.repository, self.ttl = bot, redis, repository, ttl
@@ -32,6 +33,15 @@ class SubscriptionService:
     async def invalidate_channels(self) -> None:
         await self.redis.delete(self.CHANNELS_KEY)
 
+    async def record_join_request(self, user_id: int, chat_id: int) -> None:
+        # Save for 30 days in Redis (user submitted join request)
+        await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}", "1", ex=2_592_000)
+        await self.redis.set(f"sub:v1:{chat_id}:{user_id}", "1", ex=self.ttl)
+
+    async def is_join_requested(self, user_id: int, chat_id: int) -> bool:
+        val = await self.redis.get(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}")
+        return val == "1"
+
     async def missing(self, user_id: int) -> list[RequiredChannel]:
         channels = await self.channels()
         if not channels:
@@ -39,6 +49,10 @@ class SubscriptionService:
 
         missing: list[RequiredChannel] = []
         for channel in channels:
+            # 1. If user sent a join request to this channel, count as subscribed immediately
+            if await self.is_join_requested(user_id, channel.chat_id):
+                continue
+
             key = f"sub:v1:{channel.chat_id}:{user_id}"
             cached = await self.redis.get(key)
             if cached == "1":
@@ -56,7 +70,6 @@ class SubscriptionService:
                     ChatMemberStatus.RESTRICTED,
                 }
             except Exception:
-                # If error checking (e.g. user not joined, or bot not in channel), mark as not subscribed
                 subscribed = False
 
             await self.redis.set(key, "1" if subscribed else "0", ex=self.ttl)
@@ -66,6 +79,7 @@ class SubscriptionService:
         return missing
 
     async def mark_joined(self, user_id: int, chat_id: int) -> None:
+        await self.redis.set(f"{self.JOIN_REQUEST_KEY_PREFIX}{chat_id}:{user_id}", "1", ex=2_592_000)
         await self.redis.set(f"sub:v1:{chat_id}:{user_id}", "1", ex=self.ttl)
 
     async def invalidate_user(self, user_id: int) -> None:

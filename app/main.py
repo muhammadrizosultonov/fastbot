@@ -42,9 +42,10 @@ async def build_dispatcher():  # type: ignore[no-untyped-def]
 async def run_polling() -> None:
     settings, bot, dispatcher, pool, redis, services = await build_dispatcher()
     worker = asyncio.create_task(services.broadcasts.run_forever()) if settings.run_broadcast_worker else None
+    allowed_updates = ["message", "callback_query", "chat_join_request", "chat_member", "my_chat_member"]
     try:
         await bot.delete_webhook(drop_pending_updates=False)
-        await dispatcher.start_polling(bot, allowed_updates=dispatcher.resolve_used_update_types())
+        await dispatcher.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         if worker:
             worker.cancel()
@@ -61,7 +62,8 @@ async def run_webhook() -> None:
     app.router.add_get("/healthz", health)
     SimpleRequestHandler(dispatcher=dispatcher, bot=bot, secret_token=settings.webhook_secret.get_secret_value() if settings.webhook_secret else None).register(app, path=settings.webhook_path)
     setup_application(app, dispatcher, bot=bot)
-    await bot.set_webhook(f"{settings.webhook_url.rstrip('/')}{settings.webhook_path}", secret_token=settings.webhook_secret.get_secret_value() if settings.webhook_secret else None, allowed_updates=dispatcher.resolve_used_update_types())
+    allowed_updates = ["message", "callback_query", "chat_join_request", "chat_member", "my_chat_member"]
+    await bot.set_webhook(f"{settings.webhook_url.rstrip('/')}{settings.webhook_path}", secret_token=settings.webhook_secret.get_secret_value() if settings.webhook_secret else None, allowed_updates=allowed_updates)
     worker = asyncio.create_task(services.broadcasts.run_forever()) if settings.run_broadcast_worker else None
     runner = web.AppRunner(app)
     await runner.setup()
