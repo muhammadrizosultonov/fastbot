@@ -315,7 +315,7 @@ class TestDiscoveryAndStats(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Jami foydalanuvchilar:</b> 477", report)
         self.assertIn("🥇 33 — 10", report)
         self.assertIn("🥈 forsaj — 5", report)
-        self.assertIn("Umumiy o'rtacha: 3.45 / 5", report)
+        self.assertIn("🎬 Kinolar: 4", report)
         self.assertIn("Toshkent", report)
 
 

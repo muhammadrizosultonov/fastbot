@@ -1,8 +1,29 @@
 import math
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.repositories.models import Movie, RequiredChannel
+
+ADMIN_MOVIES = "🎬 Kinolar"
+ADMIN_CHANNELS = "📡 Majburiy kanallar"
+ADMIN_STATS = "📊 Statistika"
+ADMIN_BROADCAST = "✉️ Xabar yuborish"
+ADMIN_ADMINS = "👤 Adminlar"
+ADMIN_SETTINGS = "⚙️ Sozlamalar"
+ADMIN_BACK_TO_USER = "◀️ Oddiy menyuga qaytish"
+
+
+def admin_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=ADMIN_MOVIES), KeyboardButton(text=ADMIN_CHANNELS)],
+            [KeyboardButton(text=ADMIN_STATS), KeyboardButton(text=ADMIN_BROADCAST)],
+            [KeyboardButton(text=ADMIN_ADMINS), KeyboardButton(text=ADMIN_SETTINGS)],
+            [KeyboardButton(text=ADMIN_BACK_TO_USER)],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Boshqaruv bo'limini tanlang...",
+    )
 
 
 def admin_keyboard() -> InlineKeyboardMarkup:
@@ -21,10 +42,9 @@ def movies_crud_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="➕ Yangi kino qo'shish", callback_data="admin:movie:add")
     builder.button(text="📋 Kinolar ro'yxati", callback_data="admin:movie:list:0")
-    builder.button(text="🔍 Kino qidirish", callback_data="admin:movie:search")
-    builder.button(text="🗑 Kino o'chirish", callback_data="admin:movie:del_prompt")
+    builder.button(text="🗑 Kino o'chirish", callback_data="admin:movie:del_list:0")
     builder.button(text="🔙 Asosiy admin panel", callback_data="admin:home")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 1, 1)
     return builder.as_markup()
 
 
@@ -50,6 +70,34 @@ def movies_list_admin_keyboard(movies: list[Movie], page: int, total: int, limit
         inline_keyboard.append(nav_buttons)
     inline_keyboard.append([
         InlineKeyboardButton(text="➕ Yangi qo'shish", callback_data="admin:movie:add"),
+        InlineKeyboardButton(text="🔙 Kinolar menyusi", callback_data="admin:movies:menu"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+def movies_delete_admin_keyboard(movies: list[Movie], page: int, total: int, limit: int = 5) -> InlineKeyboardMarkup:
+    inline_keyboard = []
+    for m in movies:
+        title = (m.title or m.caption or f"Kino #{m.code}").split("\n", 1)[0].strip()
+        if len(title) > 20:
+            title = title[:17] + "..."
+        inline_keyboard.append([
+            InlineKeyboardButton(text=f"🎬 {title} (#{m.code})", callback_data=f"admin:movie:view:{m.code}"),
+            InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"admin:movdel:{m.code}:{page}"),
+        ])
+
+    max_pages = max(1, math.ceil(total / limit))
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"admin:movie:del_list:{page - 1}"))
+    nav_buttons.append(InlineKeyboardButton(text=f"📄 {page + 1}/{max_pages}", callback_data="admin:noop"))
+    if (page + 1) * limit < total:
+        nav_buttons.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"admin:movie:del_list:{page + 1}"))
+
+    if nav_buttons:
+        inline_keyboard.append(nav_buttons)
+
+    inline_keyboard.append([
         InlineKeyboardButton(text="🔙 Kinolar menyusi", callback_data="admin:movies:menu"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)

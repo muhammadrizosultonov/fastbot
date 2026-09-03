@@ -118,42 +118,18 @@ class DiscoveryService:
         else:
             top_codes_str = "• Hozircha ma'lumot yo'q"
 
-        # 3. Bo'limlardan foydalanish (7 kun)
-        section_lines = []
-        for sec in TRACKED_SECTIONS:
-            sec_count = 0
-            sec_users = 0
-            try:
-                val = await self.redis.hget(self.SECTIONS_COUNT_KEY, sec)
-                if val:
-                    sec_count = int(val)
-                sec_users = int(await self.redis.pfcount(f"{self.SECTIONS_USERS_KEY}{sec}") or 0)
-            except Exception:
-                pass
-            section_lines.append(f"• {sec}: {sec_count:,}  ({sec_users:,} kishi)")
-        sections_str = "\n".join(section_lines)
-
-        # 4. Tashkent Time
+        # 3. Tashkent Time
         tashkent_tz = timezone(timedelta(hours=5))
         tashkent_now = datetime.now(tashkent_tz).strftime("%d.%m.%Y %H:%M")
 
         total_users = int(db_stats.get("total_users", 0))
         new_24h = int(db_stats.get("new_24h", 0))
         new_7d = int(db_stats.get("new_7d", 0))
-        active_24h = int(db_stats.get("active_24h", 0))
-        active_7d = int(db_stats.get("active_7d", 0))
         active_30d = int(db_stats.get("active_30d", 0))
         blocked_users = int(db_stats.get("blocked_users", 0))
-        total_referrals = int(db_stats.get("total_referrals", 0))
-        referrals_24h = int(db_stats.get("referrals_24h", 0))
-        referrers_count = int(db_stats.get("referrers_count", 0))
         total_movies = int(db_stats.get("total_movies", 0))
         new_movies_7d = int(db_stats.get("new_movies_7d", 0))
         total_channels = int(db_stats.get("total_channels", 0))
-        total_ratings = int(db_stats.get("total_ratings", 0))
-        ratings_users = int(db_stats.get("ratings_users", 0))
-        ratings_24h = int(db_stats.get("ratings_24h", 0))
-        avg_rating = float(db_stats.get("avg_rating", 0.0))
 
         report = (
             "📊 <b>Statistika</b>\n\n"
@@ -161,29 +137,16 @@ class DiscoveryService:
             "🆕 <b>Yangi kirganlar</b>\n"
             f"• 24 soat: {new_24h:,}\n"
             f"• 7 kun: {new_7d:,}\n\n"
-            "🟢 <b>Faol foydalanuvchilar</b>\n"
-            f"• 24 soat: {active_24h:,}\n"
-            f"• 7 kun: {active_7d:,}\n\n"
             "🎬 <b>So'ralgan kinolar</b>\n"
             f"• 24 soat: {views_24h:,}  ({views_24h_users:,} kishi)\n"
             f"• 7 kun: {views_7d:,}  ({views_7d_users:,} kishi)\n\n"
             "🔥 <b>Top kodlar (7 kun)</b>\n"
             f"{top_codes_str}\n\n"
-            "👥 <b>Referral</b>\n"
-            f"• Havola orqali kelganlar: {total_referrals:,}\n"
-            f"• Shundan 24 soatda: {referrals_24h:,}\n"
-            f"• Taklif qilayotganlar: {referrers_count:,}\n\n"
-            "📂 <b>Bo'limlardan foydalanish (7 kun)</b>\n"
-            f"{sections_str}\n\n"
             "🎬 <b>Ko'rishlar va faollik</b>\n"
             f"• 24 soatda ko'rilgan: {views_24h:,}  ({views_24h_users:,} kishi)\n"
             f"• 7 kunda ko'rilgan: {views_7d:,}  ({views_7d_users:,} kishi)\n"
             f"• 30 kunda faol: {active_30d:,} kishi\n"
             f"• 🆕 7 kunda qo'shilgan video: {new_movies_7d:,}\n\n"
-            "🏅 <b>Reyting</b>\n"
-            f"• Jami ovoz: {total_ratings:,}  ({ratings_users:,} kishi)\n"
-            f"• 24 soatda: {ratings_24h:,} ovoz\n"
-            f"• Umumiy o'rtacha: {avg_rating:.2f} / 5\n\n"
             "📦 <b>Baza</b>\n"
             f"🎬 Kinolar: {total_movies:,}\n"
             f"📡 Majburiy kanallar: {total_channels:,}\n"
