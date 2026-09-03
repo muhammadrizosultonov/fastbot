@@ -52,25 +52,11 @@ async def send_single_movie(
             parse_mode=ParseMode.HTML,
         )
     except Exception:
-        try:
-            msg = await message.answer_photo(
-                movie.file_id,
-                caption=caption,
-                parse_mode=ParseMode.HTML,
-            )
-        except Exception:
-            try:
-                msg = await message.answer_document(
-                    movie.file_id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                )
-            except Exception:
-                plain_caption = f"🎬 {movie.title or movie.caption or movie.code}"
-                try:
-                    msg = await message.answer_video(movie.file_id, caption=plain_caption)
-                except Exception:
-                    msg = await message.answer_photo(movie.file_id, caption=plain_caption)
+        plain_caption = f"🎬 {movie.title or movie.caption or movie.code}"
+        msg = await message.answer_video(
+            movie.file_id,
+            caption=plain_caption,
+        )
 
     await services.discovery.record_view(movie.code, uid)
     return msg

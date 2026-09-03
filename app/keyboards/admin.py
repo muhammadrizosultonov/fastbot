@@ -112,7 +112,7 @@ def movie_detail_admin_keyboard(code: str, back_page: int = 0) -> InlineKeyboard
             ],
             [
                 InlineKeyboardButton(text="📝 Tavsifni o'zgartirish", callback_data=f"admin:medit:desc:{code}"),
-                InlineKeyboardButton(text="🎬 Media (video/rasm) yangilash", callback_data=f"admin:medit:video:{code}"),
+                InlineKeyboardButton(text="🎬 Videoni yangilash", callback_data=f"admin:medit:video:{code}"),
             ],
             [
                 InlineKeyboardButton(text="🗑 Kinoni o'chirish", callback_data=f"admin:medit:del:{code}"),

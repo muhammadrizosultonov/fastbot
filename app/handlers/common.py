@@ -3,7 +3,7 @@ from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
 
 from app.keyboards.subscription import required_channels_keyboard
-from app.keyboards.user import INVITE, RANDOM, TOP_RATED, user_menu
+from app.keyboards.user import INVITE, RANDOM, user_menu
 from app.services.container import Services
 
 router = Router(name="common")
@@ -16,7 +16,7 @@ DEFAULT_WELCOME_TEXT = (
 )
 
 INVALID_WELCOME_VALUES = {
-    TOP_RATED, RANDOM, INVITE,
+    RANDOM, INVITE, "TOP SEKSLAR🔥", "⭐ TOP reyting",
     "🔥 Eng mashhurlar", "🆕 Yangi videolar", "🎭 Kategoriyalar", "❤️ Sevimlilar", "🎁 Bonuslar",
     "🎬 Kino kodini yuboring.", "start", "/start"
 }
