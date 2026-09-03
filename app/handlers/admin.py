@@ -405,13 +405,13 @@ async def add_movie_finish(message: Message, state: FSMContext, services: Servic
         category=data.get("category", "Boshqa"),
     )
     await services.movies.save(movie)
-    await state.clear()
+    caption_display = movie.caption if movie.caption else "(yo'q)"
     text = (
         f"🎉 <b>Kino muvaffaqiyatli saqlandi!</b>\n\n"
         f"🔢 <b>Kodi:</b> <code>{movie.code}</code>\n"
         f"🎬 <b>Nomi:</b> {html.escape(movie.title or '')}\n"
         f"🎭 <b>Kategoriya:</b> {html.escape(movie.category)}\n"
-        f"📝 <b>Tavsif:</b> {html.escape(movie.caption or '(yo\'q)')}"
+        f"📝 <b>Tavsif:</b> {html.escape(caption_display)}"
     )
     await message.answer(text, reply_markup=movies_crud_keyboard(), parse_mode=ParseMode.HTML)
 
