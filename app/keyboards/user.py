@@ -1,7 +1,7 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-RANDOM = "🎲 Tasodifiy video"
-TOP_MOVIES = "🔥 TOP kinolar"
+RANDOM = "Tasodifiy video 🔞"
+TOP_MOVIES = "TOP SEKSLAR🔥"
 
 
 def user_menu() -> ReplyKeyboardMarkup:
