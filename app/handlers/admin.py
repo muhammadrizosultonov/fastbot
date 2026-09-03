@@ -330,8 +330,7 @@ async def movie_view_detail(callback: CallbackQuery, services: Services) -> None
             await callback.message.answer("❌ Bu kino topilmadi yoki o'chirilgan.")
         return
 
-    avg_rating, votes_count, _ = await services.movies.repository.get_rating_info(code)
-    caption = format_movie_caption(movie, avg_rating, votes_count)
+    caption = format_movie_caption(movie)
     kb = movie_detail_admin_keyboard(code)
     if callback.message and isinstance(callback.message, Message):
         try:
@@ -342,7 +341,15 @@ async def movie_view_detail(callback: CallbackQuery, services: Services) -> None
                 parse_mode=ParseMode.HTML,
             )
         except Exception:
-            await callback.message.answer(caption, reply_markup=kb, parse_mode=ParseMode.HTML)
+            try:
+                await callback.message.answer_photo(
+                    movie.file_id,
+                    caption=caption,
+                    reply_markup=kb,
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception:
+                await callback.message.answer(caption, reply_markup=kb, parse_mode=ParseMode.HTML)
 
 
 # 3. CREATE: Add new movie wizard
@@ -363,15 +370,25 @@ async def add_movie_code(message: Message, state: FSMContext, services: Services
         return
     await state.update_data(code=code)
     await state.set_state(AddMovie.file_id)
-    await message.answer("🎬 <b>(2/5)</b> Kinoning <b>videosini</b> yuboring:", parse_mode=ParseMode.HTML)
+    await message.answer("🎬 <b>(2/5)</b> Kinoning <b>video yoki rasmini</b> yuboring:", parse_mode=ParseMode.HTML)
 
 
-@router.message(AddMovie.file_id, F.video)
-async def add_movie_video(message: Message, state: FSMContext) -> None:
-    file_id = message.video.file_id
+@router.message(AddMovie.file_id, F.video | F.photo | F.document | F.animation)
+async def add_movie_media(message: Message, state: FSMContext) -> None:
+    if message.video:
+        file_id = message.video.file_id
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+    elif message.document:
+        file_id = message.document.file_id
+    elif message.animation:
+        file_id = message.animation.file_id
+    else:
+        await message.answer("Iltimos, video yoki rasm yuboring.")
+        return
     await state.update_data(file_id=file_id)
     await state.set_state(AddMovie.title)
-    await message.answer("🎬 <b>(3/5)</b> Kino nomini yuboring (masalan: <i>Forsaj 10</i>):", parse_mode=ParseMode.HTML)
+    await message.answer("🎬 <b>(3/5)</b> Kino/video nomini yuboring (masalan: <i>Forsaj 10</i>):", parse_mode=ParseMode.HTML)
 
 
 @router.message(AddMovie.title, F.text)
@@ -533,20 +550,27 @@ async def edit_video_start(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(EditMovie.video)
     await callback.answer()
     if callback.message and isinstance(callback.message, Message):
-        await callback.message.answer(f"🎬 <code>{code}</code> kodi uchun <b>yangi videoni</b> yuboring:", parse_mode=ParseMode.HTML)
+        await callback.message.answer(f"🎬 <code>{code}</code> kodi uchun <b>yangi video yoki rasmni</b> yuboring:", parse_mode=ParseMode.HTML)
 
 
-@router.message(EditMovie.video, F.video)
+@router.message(EditMovie.video, F.video | F.photo | F.document | F.animation)
 async def edit_video_save(message: Message, state: FSMContext, services: Services) -> None:
     data = await state.get_data()
     code = data["edit_code"]
     movie = await services.movies.find(code)
     if movie:
-        movie.file_id = message.video.file_id
+        if message.video:
+            movie.file_id = message.video.file_id
+        elif message.photo:
+            movie.file_id = message.photo[-1].file_id
+        elif message.document:
+            movie.file_id = message.document.file_id
+        elif message.animation:
+            movie.file_id = message.animation.file_id
         await services.movies.save(movie)
         await state.clear()
         kb = movie_detail_admin_keyboard(code)
-        await message.answer("✅ Video fayli yangilandi!", reply_markup=kb, parse_mode=ParseMode.HTML)
+        await message.answer("✅ Media fayli yangilandi!", reply_markup=kb, parse_mode=ParseMode.HTML)
 
 
 @router.callback_query(F.data.startswith("admin:medit:del:"))
