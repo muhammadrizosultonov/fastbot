@@ -26,7 +26,7 @@ from app.keyboards.admin import (
     movies_delete_admin_keyboard,
     movies_list_admin_keyboard,
 )
-from app.keyboards.user import INVITE, RANDOM, TOP_RATED, user_menu
+from app.keyboards.user import INVITE, RANDOM, user_menu
 from app.repositories.models import Movie, RequiredChannel
 from app.services.container import Services
 from app.utils.movie_helpers import format_movie_caption
@@ -657,7 +657,7 @@ async def add_admin(message: Message, state: FSMContext, services: Services) -> 
     if not message.from_user or not services.admins.is_root(message.from_user.id):
         return
     text = message.text.strip()
-    if text.startswith("/") or text in {ADMIN_MOVIES, ADMIN_CHANNELS, ADMIN_STATS, ADMIN_BROADCAST, ADMIN_ADMINS, ADMIN_SETTINGS, ADMIN_BACK_TO_USER, RANDOM, TOP_RATED, INVITE}:
+    if text.startswith("/") or text in {ADMIN_MOVIES, ADMIN_CHANNELS, ADMIN_STATS, ADMIN_BROADCAST, ADMIN_ADMINS, ADMIN_SETTINGS, ADMIN_BACK_TO_USER, RANDOM, INVITE}:
         await state.clear()
         if text == "/cancel":
             await message.answer("❌ Bekor qilindi.", reply_markup=admin_reply_keyboard())

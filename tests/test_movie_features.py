@@ -98,7 +98,7 @@ from app.utils.movie_helpers import format_movie_caption
 
 
 class TestMovieHelpers(unittest.TestCase):
-    def test_format_movie_caption_without_ratings(self):
+    def test_format_movie_caption(self):
         movie = Movie(
             code="101",
             file_id="BAADBAAD...",
@@ -106,57 +106,14 @@ class TestMovieHelpers(unittest.TestCase):
             caption="Eng tezkor poyga",
             category="Jangari",
         )
-        caption = format_movie_caption(movie, avg_rating=0.0, votes_count=0, user_rating=None)
+        caption = format_movie_caption(movie)
         self.assertIn("Forsaj 10", caption)
-        self.assertIn("101", caption)
-        self.assertIn("Jangari", caption)
-        self.assertIn("Hali baholanmagan", caption)
         self.assertIn("Eng tezkor poyga", caption)
-
-    def test_format_movie_caption_with_ratings_and_user_rating(self):
-        movie = Movie(
-            code="102",
-            file_id="BAADBAAD...",
-            title="Avatar 2",
-            caption="Suv yo'li",
-            category="Fantastika",
-        )
-        caption = format_movie_caption(movie, avg_rating=4.8, votes_count=25, user_rating=5)
-        self.assertIn("Avatar 2", caption)
-        self.assertIn("102", caption)
-        self.assertIn("Fantastika", caption)
-        self.assertIn("4.8/5 (25 ta ovoz)", caption)
-        self.assertIn("Sizning bahoingiz: 5⭐️", caption)
+        self.assertNotIn("Reyting", caption)
+        self.assertNotIn("Kategoriya", caption)
 
 
 class TestMovieKeyboards(unittest.TestCase):
-    def test_movie_actions_unfavorited_unrated(self):
-        kb = movie_actions(code="marvel_1", is_fav=False, user_rating=None, avg_rating=0.0, votes_count=0)
-        self.assertIsNotNone(kb)
-        # Check favorite button
-        self.assertEqual(kb.inline_keyboard[0][0].text, "🤍 Sevimlilarga qo'shish")
-        self.assertEqual(kb.inline_keyboard[0][0].callback_data, "fav:marvel_1")
-        # Check rating buttons
-        rating_row = kb.inline_keyboard[1]
-        self.assertEqual(len(rating_row), 5)
-        self.assertEqual(rating_row[0].text, "1 ⭐")
-        self.assertEqual(rating_row[0].callback_data, "rate:1:marvel_1")
-        # Check stats button
-        self.assertEqual(kb.inline_keyboard[2][0].text, "⭐️ Hali baholanmagan")
-        self.assertEqual(kb.inline_keyboard[2][0].callback_data, "info:marvel_1")
-
-    def test_movie_actions_favorited_and_rated(self):
-        kb = movie_actions(code="marvel_1", is_fav=True, user_rating=4, avg_rating=4.5, votes_count=10)
-        self.assertIsNotNone(kb)
-        # Check favorite button toggled
-        self.assertEqual(kb.inline_keyboard[0][0].text, "💖 Sevimlilarda (O'chirish)")
-        # Check 4th star is highlighted
-        rating_row = kb.inline_keyboard[1]
-        self.assertEqual(rating_row[3].text, "★ 4 🌟")
-        self.assertEqual(rating_row[3].callback_data, "rate:4:marvel_1")
-        # Check stats button shows info
-        self.assertIn("4.5 / 5 (10 ta ovoz)", kb.inline_keyboard[2][0].text)
-
     def test_movie_list_keyboard(self):
         from app.keyboards.movie_actions import movie_list_keyboard
         movies = [
