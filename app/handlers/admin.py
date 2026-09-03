@@ -44,15 +44,13 @@ class AddChannel(StatesGroup):
 
 class AddMovie(StatesGroup):
     code = State()
-    file_id = State()
     title = State()
-    category = State()
+    file_id = State()
     caption = State()
 
 
 class EditMovie(StatesGroup):
     title = State()
-    category = State()
     caption = State()
     video = State()
 
@@ -345,13 +343,13 @@ async def movie_view_detail(callback: CallbackQuery, services: Services) -> None
             await callback.message.answer(caption, reply_markup=kb, parse_mode=ParseMode.HTML)
 
 
-# 3. CREATE: Add new movie wizard
+# 3. CREATE: Add new movie wizard (4 steps: kodi, nomi, media, izohi)
 @router.callback_query(F.data == "admin:movie:add")
 async def add_movie_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(AddMovie.code)
     if callback.message and isinstance(callback.message, Message):
-        await callback.message.answer("🎬 <b>Yangi kino qo'shish (1/5):</b>\n\nKino kodini yuboring (masalan: <code>101</code>):", parse_mode=ParseMode.HTML)
+        await callback.message.answer("🎬 <b>Yangi kino qo'shish (1/4):</b>\n\nKino kodini yuboring (masalan: <code>101</code>):", parse_mode=ParseMode.HTML)
 
 
 @router.message(AddMovie.code, F.text)
@@ -362,33 +360,34 @@ async def add_movie_code(message: Message, state: FSMContext, services: Services
         await message.answer(f"⚠️ <code>{code}</code> kodli kino allaqachon mavjud! Boshqa kod yuboring:", parse_mode=ParseMode.HTML)
         return
     await state.update_data(code=code)
-    await state.set_state(AddMovie.file_id)
-    await message.answer("🎬 <b>(2/5)</b> Kinoning <b>videosini</b> yuboring:", parse_mode=ParseMode.HTML)
-
-
-@router.message(AddMovie.file_id, F.video)
-async def add_movie_video(message: Message, state: FSMContext) -> None:
-    file_id = message.video.file_id
-    await state.update_data(file_id=file_id)
     await state.set_state(AddMovie.title)
-    await message.answer("🎬 <b>(3/5)</b> Kino nomini yuboring (masalan: <i>Forsaj 10</i>):", parse_mode=ParseMode.HTML)
+    await message.answer("🎬 <b>(2/4)</b> Kino nomini yuboring (masalan: <i>Forsaj 10</i>):", parse_mode=ParseMode.HTML)
 
 
 @router.message(AddMovie.title, F.text)
 async def add_movie_title(message: Message, state: FSMContext) -> None:
     title = message.text.strip()
     await state.update_data(title=title)
-    await state.set_state(AddMovie.category)
-    await message.answer("🎬 <b>(4/5)</b> Kino kategoriyasini yuboring (masalan: <i>Jangari, Komediya, Drama</i> yoki o'tkazib yuborish uchun <code>-</code>):", parse_mode=ParseMode.HTML)
+    await state.set_state(AddMovie.file_id)
+    await message.answer("🎬 <b>(3/4)</b> Kinoning <b>video yoki rasmini</b> yuboring:", parse_mode=ParseMode.HTML)
 
 
-@router.message(AddMovie.category, F.text)
-async def add_movie_category(message: Message, state: FSMContext) -> None:
-    raw_cat = message.text.strip()
-    category = "Boshqa" if raw_cat == "-" else raw_cat[:48]
-    await state.update_data(category=category)
+@router.message(AddMovie.file_id, F.video | F.photo | F.document | F.animation)
+async def add_movie_media(message: Message, state: FSMContext) -> None:
+    if message.video:
+        file_id = message.video.file_id
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+    elif message.document:
+        file_id = message.document.file_id
+    elif message.animation:
+        file_id = message.animation.file_id
+    else:
+        await message.answer("Iltimos, video yoki rasm yuboring.")
+        return
+    await state.update_data(file_id=file_id)
     await state.set_state(AddMovie.caption)
-    await message.answer("🎬 <b>(5/5)</b> Video tagidagi tavsif (caption) matnini yuboring (yoki bo'sh qoldirish uchun <code>-</code>):", parse_mode=ParseMode.HTML)
+    await message.answer("🎬 <b>(4/4)</b> Video/rasm tagidagi <b>izohni</b> yuboring (yoki bo'sh qoldirish uchun <code>-</code>):", parse_mode=ParseMode.HTML)
 
 
 @router.message(AddMovie.caption, F.text)
@@ -402,16 +401,16 @@ async def add_movie_finish(message: Message, state: FSMContext, services: Servic
         file_id=data["file_id"],
         title=data["title"],
         caption=caption,
-        category=data.get("category", "Boshqa"),
+        category="Boshqa",
     )
     await services.movies.save(movie)
+    await state.clear()
     caption_display = movie.caption if movie.caption else "(yo'q)"
     text = (
         f"🎉 <b>Kino muvaffaqiyatli saqlandi!</b>\n\n"
         f"🔢 <b>Kodi:</b> <code>{movie.code}</code>\n"
         f"🎬 <b>Nomi:</b> {html.escape(movie.title or '')}\n"
-        f"🎭 <b>Kategoriya:</b> {html.escape(movie.category)}\n"
-        f"📝 <b>Tavsif:</b> {html.escape(caption_display)}"
+        f"📝 <b>Izoh:</b> {html.escape(caption_display)}"
     )
     await message.answer(text, reply_markup=movies_crud_keyboard(), parse_mode=ParseMode.HTML)
 
@@ -480,29 +479,6 @@ async def edit_title_save(message: Message, state: FSMContext, services: Service
         await message.answer(f"✅ Kino nomi <b>{html.escape(movie.title)}</b> ga o'zgartirildi!", reply_markup=kb, parse_mode=ParseMode.HTML)
 
 
-@router.callback_query(F.data.startswith("admin:medit:cat:"))
-async def edit_category_start(callback: CallbackQuery, state: FSMContext) -> None:
-    code = callback.data[16:]
-    await state.update_data(edit_code=code)
-    await state.set_state(EditMovie.category)
-    await callback.answer()
-    if callback.message and isinstance(callback.message, Message):
-        await callback.message.answer(f"🎭 <code>{code}</code> kodi uchun <b>yangi kategoriya</b> kiriting:", parse_mode=ParseMode.HTML)
-
-
-@router.message(EditMovie.category, F.text)
-async def edit_category_save(message: Message, state: FSMContext, services: Services) -> None:
-    data = await state.get_data()
-    code = data["edit_code"]
-    movie = await services.movies.find(code)
-    if movie:
-        movie.category = message.text.strip()[:48]
-        await services.movies.save(movie)
-        await state.clear()
-        kb = movie_detail_admin_keyboard(code)
-        await message.answer(f"✅ Kategoriya <b>{html.escape(movie.category)}</b> ga o'zgartirildi!", reply_markup=kb, parse_mode=ParseMode.HTML)
-
-
 @router.callback_query(F.data.startswith("admin:medit:desc:"))
 async def edit_desc_start(callback: CallbackQuery, state: FSMContext) -> None:
     code = callback.data[17:]
@@ -510,7 +486,7 @@ async def edit_desc_start(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(EditMovie.caption)
     await callback.answer()
     if callback.message and isinstance(callback.message, Message):
-        await callback.message.answer(f"📝 <code>{code}</code> kodi uchun <b>yangi tavsif (caption)</b> kiriting (yoki tozalash uchun <code>-</code>):", parse_mode=ParseMode.HTML)
+        await callback.message.answer(f"📝 <code>{code}</code> kodi uchun <b>yangi izohni</b> kiriting (yoki tozalash uchun <code>-</code>):", parse_mode=ParseMode.HTML)
 
 
 @router.message(EditMovie.caption, F.text)
@@ -523,7 +499,7 @@ async def edit_desc_save(message: Message, state: FSMContext, services: Services
         await services.movies.save(movie)
         await state.clear()
         kb = movie_detail_admin_keyboard(code)
-        await message.answer("✅ Kino tavsifi yangilandi!", reply_markup=kb, parse_mode=ParseMode.HTML)
+        await message.answer("✅ Kino izohi yangilandi!", reply_markup=kb, parse_mode=ParseMode.HTML)
 
 
 @router.callback_query(F.data.startswith("admin:medit:video:"))
