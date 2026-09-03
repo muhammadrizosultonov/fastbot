@@ -1,9 +1,9 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 
-from app.keyboards.user import INVITE, RANDOM
+from app.keyboards.user import RANDOM, TOP_MOVIES
 from app.services.container import Services
-from app.utils.movie_helpers import send_single_movie
+from app.utils.movie_helpers import send_movie_list, send_single_movie
 
 router = Router(name="user_features")
 
@@ -22,7 +22,7 @@ async def get_movie_callback(callback: CallbackQuery, services: Services) -> Non
     await send_single_movie(callback.message, movie, services, user_id=user_id)
 
 
-@router.message(F.text == RANDOM)
+@router.message(F.text.in_({RANDOM, "🎲 Tasodifiy video", "Tasodifiy video 🔞"}))
 async def random_movie(message: Message, services: Services) -> None:
     user_id = message.from_user.id if message.from_user else None
     await services.discovery.track_section("🎲 Tasodifiy video", user_id)
@@ -33,19 +33,15 @@ async def random_movie(message: Message, services: Services) -> None:
     await send_single_movie(message, movie, services, user_id=user_id)
 
 
-@router.message(F.text == INVITE)
-async def invite(message: Message, services: Services) -> None:
-    if not message.from_user:
-        return
-    await services.discovery.track_section("👥 Do'st taklif qilish", message.from_user.id)
-    bot_user = await message.bot.get_me()
-    link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
-    points, referrals = await services.users.bonus_summary(message.from_user.id)
-    await message.answer(
-        f"👥 <b>Do'stlaringizni taklif qiling va bonus oling!</b>\n\n"
-        f"Har bir taklif qilingan do'stingiz uchun <b>10 ball</b> beriladi.\n\n"
-        f"👥 Siz taklif qilgan do'stlar: <b>{referrals} ta</b>\n"
-        f"💎 To'plangan ballar: <b>{points} ball</b>\n\n"
-        f"Sizning taklif havolangiz:\n<code>{link}</code>",
-        parse_mode="HTML",
+@router.message(F.text.in_({TOP_MOVIES, "🔥 TOP kinolar", "TOP kinolar", "TOP SEKSLAR🔥", "⭐ TOP reyting"}))
+async def top_movies(message: Message, services: Services) -> None:
+    user_id = message.from_user.id if message.from_user else None
+    await services.discovery.track_section("🔥 TOP kinolar", user_id)
+    movies = await services.discovery.popular(limit=10)
+    await send_movie_list(
+        message,
+        movies,
+        services,
+        "🔥 <b>Eng ko'p ko'rilayotgan TOP kinolar:</b>",
+        user_id=user_id,
     )
